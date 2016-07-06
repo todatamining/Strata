@@ -56,7 +56,7 @@ public final class ConstantNodalCurve
   @PropertyDefinition(validate = "notNull", overrideGet = true)
   private final CurveMetadata metadata;
   /**
-   * The single y-value.
+   * The single x-value.
    */
   @PropertyDefinition(validate = "notNull")
   private final double xValue;
@@ -70,7 +70,7 @@ public final class ConstantNodalCurve
 
   //-------------------------------------------------------------------------
   /**
-   * Creates a constant curve with metadata.
+   * Creates a constant nodal curve with metadata.
    * 
    * @param metadata  the curve metadata
    * @param xValue  the x-value
@@ -82,7 +82,7 @@ public final class ConstantNodalCurve
   }
 
   /**
-   * Creates a constant curve with metadata.
+   * Creates a constant nodal curve with metadata.
    * 
    * @param metadata  the curve metadata
    * @param xValue  the x-value
@@ -254,7 +254,7 @@ public final class ConstantNodalCurve
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the single y-value.
+   * Gets the single x-value.
    * @return the value of the property, not null
    */
   public double getXValue() {
@@ -537,7 +537,7 @@ public final class ConstantNodalCurve
     }
 
     /**
-     * Sets the single y-value.
+     * Sets the single x-value.
      * @param xValue  the new value, not null
      * @return this, for chaining, not null
      */
