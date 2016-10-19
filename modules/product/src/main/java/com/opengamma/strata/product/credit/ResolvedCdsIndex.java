@@ -69,7 +69,7 @@ public final class ResolvedCdsIndex
    * <p>
    * This identifiers are used for the reference legal entities of the CDS index.
    */
-  @PropertyDefinition(validate = "notEmpty")
+  @PropertyDefinition(validate = "notNull")
   private final ImmutableList<StandardId> referenceEntityIds;
   /**
    * The periodic payments based on the fixed rate.
@@ -131,7 +131,7 @@ public final class ResolvedCdsIndex
    * @param stepinDate  the step-in date
    * @return the effective start date
    */
-  public LocalDate getEffectiveStartDate(LocalDate stepinDate) {
+  public LocalDate calculateEffectiveStartDate(LocalDate stepinDate) {
     LocalDate startDate = stepinDate.isAfter(getAccrualStartDate()) ? stepinDate : getAccrualStartDate();
     return protectionStart.isBeginning() ? startDate.minusDays(1) : startDate;
   }
@@ -258,7 +258,7 @@ public final class ResolvedCdsIndex
       DaysAdjustment settlementDateOffset) {
     JodaBeanUtils.notNull(buySell, "buySell");
     JodaBeanUtils.notNull(cdsIndexId, "cdsIndexId");
-    JodaBeanUtils.notEmpty(referenceEntityIds, "referenceEntityIds");
+    JodaBeanUtils.notNull(referenceEntityIds, "referenceEntityIds");
     JodaBeanUtils.notEmpty(periodicPayments, "periodicPayments");
     JodaBeanUtils.notNull(protectionEndDate, "protectionEndDate");
     JodaBeanUtils.notNull(dayCount, "dayCount");
@@ -323,7 +323,7 @@ public final class ResolvedCdsIndex
    * Gets the legal entity identifiers.
    * <p>
    * This identifiers are used for the reference legal entities of the CDS index.
-   * @return the value of the property, not empty
+   * @return the value of the property, not null
    */
   public ImmutableList<StandardId> getReferenceEntityIds() {
     return referenceEntityIds;
@@ -901,11 +901,11 @@ public final class ResolvedCdsIndex
      * Sets the legal entity identifiers.
      * <p>
      * This identifiers are used for the reference legal entities of the CDS index.
-     * @param referenceEntityIds  the new value, not empty
+     * @param referenceEntityIds  the new value, not null
      * @return this, for chaining, not null
      */
     public Builder referenceEntityIds(List<StandardId> referenceEntityIds) {
-      JodaBeanUtils.notEmpty(referenceEntityIds, "referenceEntityIds");
+      JodaBeanUtils.notNull(referenceEntityIds, "referenceEntityIds");
       this.referenceEntityIds = referenceEntityIds;
       return this;
     }
@@ -913,7 +913,7 @@ public final class ResolvedCdsIndex
     /**
      * Sets the {@code referenceEntityIds} property in the builder
      * from an array of objects.
-     * @param referenceEntityIds  the new value, not empty
+     * @param referenceEntityIds  the new value, not null
      * @return this, for chaining, not null
      */
     public Builder referenceEntityIds(StandardId... referenceEntityIds) {

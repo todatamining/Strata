@@ -77,7 +77,7 @@ public final class CdsIndex
    * <p>
    * This identifiers are used for the reference legal entities of the CDS index.
    */
-  @PropertyDefinition(validate = "notEmpty")
+  @PropertyDefinition(validate = "notNull")
   private final ImmutableList<StandardId> referenceEntityIds;
   /**
    * The currency of the CDS index.
@@ -329,7 +329,7 @@ public final class CdsIndex
       DaysAdjustment settlementDateOffset) {
     JodaBeanUtils.notNull(buySell, "buySell");
     JodaBeanUtils.notNull(cdsIndexId, "cdsIndexId");
-    JodaBeanUtils.notEmpty(referenceEntityIds, "referenceEntityIds");
+    JodaBeanUtils.notNull(referenceEntityIds, "referenceEntityIds");
     JodaBeanUtils.notNull(currency, "currency");
     ArgChecker.notNegativeOrZero(notional, "notional");
     JodaBeanUtils.notNull(accrualSchedule, "accrualSchedule");
@@ -398,7 +398,7 @@ public final class CdsIndex
    * Gets the legal entity identifiers.
    * <p>
    * This identifiers are used for the reference legal entities of the CDS index.
-   * @return the value of the property, not empty
+   * @return the value of the property, not null
    */
   public ImmutableList<StandardId> getReferenceEntityIds() {
     return referenceEntityIds;
@@ -1054,11 +1054,11 @@ public final class CdsIndex
      * Sets the legal entity identifiers.
      * <p>
      * This identifiers are used for the reference legal entities of the CDS index.
-     * @param referenceEntityIds  the new value, not empty
+     * @param referenceEntityIds  the new value, not null
      * @return this, for chaining, not null
      */
     public Builder referenceEntityIds(List<StandardId> referenceEntityIds) {
-      JodaBeanUtils.notEmpty(referenceEntityIds, "referenceEntityIds");
+      JodaBeanUtils.notNull(referenceEntityIds, "referenceEntityIds");
       this.referenceEntityIds = referenceEntityIds;
       return this;
     }
@@ -1066,7 +1066,7 @@ public final class CdsIndex
     /**
      * Sets the {@code referenceEntityIds} property in the builder
      * from an array of objects.
-     * @param referenceEntityIds  the new value, not empty
+     * @param referenceEntityIds  the new value, not null
      * @return this, for chaining, not null
      */
     public Builder referenceEntityIds(StandardId... referenceEntityIds) {
