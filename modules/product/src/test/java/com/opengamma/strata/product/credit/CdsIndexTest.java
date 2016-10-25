@@ -58,7 +58,7 @@ public class CdsIndexTest {
   private static final double NOTIONAL = 1.0e9;
   private static final LocalDate START_DATE = LocalDate.of(2013, 12, 20);
   private static final LocalDate END_DATE = LocalDate.of(2024, 9, 20);
-  private static final CdsIndex PRODUCT_STD = CdsIndex.of(
+  private static final CdsIndex PRODUCT = CdsIndex.of(
       BUY, INDEX_ID, LEGAL_ENTITIES, USD, NOTIONAL, START_DATE, END_DATE, P3M, BusinessDayAdjustment.of(FOLLOWING, SAT_SUN),
       SHORT_INITIAL, COUPON, ACT_360, ACCRUED_PREMIUM, BEGINNING, STEPIN_DAY_ADJ, SETTLE_DAY_ADJ);
 
@@ -107,25 +107,25 @@ public class CdsIndexTest {
         .rollConvention(RollConventions.NONE)
         .stubConvention(SHORT_INITIAL)
         .build();
-    assertEquals(PRODUCT_STD.getAccrualSchedule(), expected);
-    assertEquals(PRODUCT_STD.getBuySell(), BUY);
-    assertEquals(PRODUCT_STD.getCurrency(), USD);
-    assertEquals(PRODUCT_STD.getDayCount(), ACT_360);
-    assertEquals(PRODUCT_STD.getFixedRate(), COUPON);
-    assertEquals(PRODUCT_STD.getCdsIndexId(), INDEX_ID);
-    assertEquals(PRODUCT_STD.getReferenceEntityIds(), LEGAL_ENTITIES);
-    assertEquals(PRODUCT_STD.getNotional(), NOTIONAL);
-    assertEquals(PRODUCT_STD.getPaymentOnDefault(), ACCRUED_PREMIUM);
-    assertEquals(PRODUCT_STD.getProtectionStart(), BEGINNING);
-    assertEquals(PRODUCT_STD.getSettlementDateOffset(), SETTLE_DAY_ADJ);
-    assertEquals(PRODUCT_STD.getStepinDateOffset(), STEPIN_DAY_ADJ);
+    assertEquals(PRODUCT.getAccrualSchedule(), expected);
+    assertEquals(PRODUCT.getBuySell(), BUY);
+    assertEquals(PRODUCT.getCurrency(), USD);
+    assertEquals(PRODUCT.getDayCount(), ACT_360);
+    assertEquals(PRODUCT.getFixedRate(), COUPON);
+    assertEquals(PRODUCT.getCdsIndexId(), INDEX_ID);
+    assertEquals(PRODUCT.getReferenceEntityIds(), LEGAL_ENTITIES);
+    assertEquals(PRODUCT.getNotional(), NOTIONAL);
+    assertEquals(PRODUCT.getPaymentOnDefault(), ACCRUED_PREMIUM);
+    assertEquals(PRODUCT.getProtectionStart(), BEGINNING);
+    assertEquals(PRODUCT.getSettlementDateOffset(), SETTLE_DAY_ADJ);
+    assertEquals(PRODUCT.getStepinDateOffset(), STEPIN_DAY_ADJ);
     CdsIndex test = CdsIndex.of(BUY, INDEX_ID, LEGAL_ENTITIES, USD, NOTIONAL, START_DATE, END_DATE, SAT_SUN, COUPON);
-    assertEquals(test, PRODUCT_STD);
+    assertEquals(test, PRODUCT);
   }
 
   public void test_resolve() {
     BusinessDayAdjustment bussAdj = BusinessDayAdjustment.of(FOLLOWING, SAT_SUN);
-    ResolvedCdsIndex test = PRODUCT_STD.resolve(REF_DATA);
+    ResolvedCdsIndex test = PRODUCT.resolve(REF_DATA);
     int nDates = 44;
     LocalDate[] dates = new LocalDate[nDates];
     for (int i = 0; i < nDates; ++i) {
@@ -180,17 +180,17 @@ public class CdsIndexTest {
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    coverImmutableBean(PRODUCT_STD);
+    coverImmutableBean(PRODUCT);
     CdsIndex other = CdsIndex.of(SELL, StandardId.of("OG", "AA-INDEX"),
         ImmutableList.of(StandardId.of("OG", "ABC1"), StandardId.of("OG", "ABC2")), JPY, 1d, LocalDate.of(2014, 1, 4),
         LocalDate.of(2020, 11, 20), P6M, BusinessDayAdjustment.of(BusinessDayConventions.FOLLOWING, JPTO),
         StubConvention.SHORT_FINAL, 0.01, ACT_365F, PaymentOnDefault.NONE, ProtectionStartOfDay.NONE, DaysAdjustment.NONE,
         DaysAdjustment.NONE);
-    coverBeanEquals(PRODUCT_STD, other);
+    coverBeanEquals(PRODUCT, other);
   }
 
   public void test_serialization() {
-    assertSerialization(PRODUCT_STD);
+    assertSerialization(PRODUCT);
   }
 
 }
