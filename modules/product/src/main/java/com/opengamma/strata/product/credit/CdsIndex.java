@@ -203,7 +203,7 @@ public final class CdsIndex
   }
 
   /**
-   * Creates an instance of standardized CDS.
+   * Creates an instance of standardized CDS index.
    * 
    * @param buySell  buy or sell
    * @param cdsIndexId  the CDS index ID

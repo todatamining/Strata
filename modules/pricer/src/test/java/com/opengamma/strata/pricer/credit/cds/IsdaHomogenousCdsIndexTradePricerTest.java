@@ -121,7 +121,6 @@ public class IsdaHomogenousCdsIndexTradePricerTest {
   private static final IsdaHomogenousCdsIndexProductPricer PRICER_PRODUCT_MF =
       new IsdaHomogenousCdsIndexProductPricer(AccrualOnDefaultFormula.MARKIT_FIX);
   private static final DiscountingPaymentPricer PRICER_PAYMENT = DiscountingPaymentPricer.DEFAULT;
-
   private static final double TOL = 1.0e-15;
 
   public void test_price() {
