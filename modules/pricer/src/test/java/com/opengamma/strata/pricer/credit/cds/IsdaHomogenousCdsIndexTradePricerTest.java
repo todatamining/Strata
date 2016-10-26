@@ -26,6 +26,7 @@ import com.opengamma.strata.basics.date.HolidayCalendarIds;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.collect.tuple.Pair;
 import com.opengamma.strata.market.ValueType;
+import com.opengamma.strata.market.curve.CurveInfoType;
 import com.opengamma.strata.market.curve.DefaultCurveMetadata;
 import com.opengamma.strata.market.curve.InterpolatedNodalCurve;
 import com.opengamma.strata.market.curve.interpolator.CurveExtrapolators;
@@ -75,11 +76,13 @@ public class IsdaHomogenousCdsIndexTradePricerTest {
   private static final DoubleArray RATE_CC = DoubleArray.ofUnsafe(new double[] {0.009950492020354761, 0.01203385973637765,
       0.01418821591480718, 0.01684815168721049, 0.01974873350586718, 0.023084203422383043, 0.02696911931489543,
       0.029605642651816415});
+  private static final double INDEX_FACTOR = 93d / 97d;
   private static final DefaultCurveMetadata METADATA_CC = DefaultCurveMetadata.builder()
       .xValueType(ValueType.YEAR_FRACTION)
       .yValueType(ValueType.ZERO_RATE)
       .curveName("credit")
       .dayCount(ACT_365F)
+      .addInfo(CurveInfoType.CDS_INDEX_FACTOR, INDEX_FACTOR)
       .build();
   private static final InterpolatedNodalCurve NODAL_CC = InterpolatedNodalCurve.of(METADATA_CC, TIME_CC, RATE_CC,
       CurveInterpolators.PRODUCT_LINEAR, CurveExtrapolators.FLAT, CurveExtrapolators.PRODUCT_LINEAR);
