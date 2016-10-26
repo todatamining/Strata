@@ -130,8 +130,10 @@ public class IsdaHomogenousCdsIndexProductPricerTest {
     CurrencyAmount dirtyPvOg = PRICER_OG.presentValue(PRODUCT, RATES_PROVIDER_SINGLE, SETTLEMENT_STD, DIRTY, REF_DATA);
     assertEquals(dirtyPvOg.getAmount(), 8051477.663230239, NOTIONAL * TOL);
     assertEquals(dirtyPvOg.getCurrency(), USD);
-    double cleanPriceOg = PRICER_OG.price(PRODUCT, RATES_PROVIDER_SINGLE, SETTLEMENT_STD, CLEAN, REF_DATA); // TODO
-    double dirtyPriceOg = PRICER_OG.price(PRODUCT, RATES_PROVIDER_SINGLE, SETTLEMENT_STD, DIRTY, REF_DATA); // TODO
+    double cleanPriceOg = PRICER_OG.price(PRODUCT, RATES_PROVIDER_SINGLE, SETTLEMENT_STD, CLEAN, REF_DATA);
+    assertEquals(cleanPriceOg, -0.07619999999999996, TOL);
+    double dirtyPriceOg = PRICER_OG.price(PRODUCT, RATES_PROVIDER_SINGLE, SETTLEMENT_STD, DIRTY, REF_DATA);
+    assertEquals(dirtyPriceOg, -0.08397777777777776, TOL);
   }
 
   public void endedTest() {
