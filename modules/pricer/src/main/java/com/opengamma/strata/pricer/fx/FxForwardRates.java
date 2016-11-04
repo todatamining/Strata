@@ -96,7 +96,7 @@ public interface FxForwardRates
    * 
    * @param baseCurrency  the base currency that the rate should be expressed against
    * @param referenceDate  the date to find the sensitivity for
-   * @return the spot sensitivity of the rate // the sensitivity of the FX forward rate to today's FX rate
+   * @return the sensitivity of the FX forward rate to today's FX rate
    * @throws RuntimeException if the value cannot be obtained
    */
   public abstract double rateFxSpotSensitivity(Currency baseCurrency, LocalDate referenceDate);
