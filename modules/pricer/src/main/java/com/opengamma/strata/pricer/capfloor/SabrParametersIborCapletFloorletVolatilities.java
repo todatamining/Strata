@@ -1,9 +1,9 @@
 /**
- * Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+ * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
  *
  * Please see distribution for license.
  */
-package com.opengamma.strata.pricer.swaption;
+package com.opengamma.strata.pricer.capfloor;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -28,10 +28,12 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableList;
 import com.opengamma.strata.basics.date.DayCount;
+import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.value.ValueDerivatives;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.data.MarketDataName;
+import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.model.SabrParameterType;
 import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
 import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
@@ -40,35 +42,33 @@ import com.opengamma.strata.market.param.ParameterPerturbation;
 import com.opengamma.strata.market.param.UnitParameterSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivity;
-import com.opengamma.strata.market.surface.Surface;
 import com.opengamma.strata.pricer.impl.option.BlackFormulaRepository;
-import com.opengamma.strata.pricer.model.SabrInterestRateSurfaceParameters;
+import com.opengamma.strata.pricer.model.SabrInterestRateCurveParameters;
 import com.opengamma.strata.product.common.PutCall;
-import com.opengamma.strata.product.swap.type.FixedIborSwapConvention;
 
 /**
- * Volatility environment for swaptions in the SABR model.
+ * Volatility environment for Ibor caplet/floorlet in the SABR model.
  * <p>
  * The volatility is represented in terms of SABR model parameters.
  * <p>
  * The {@code parameterSensitivity()}, {@code priceGamma()} and {@code priceTheta()} methods are not implemented.
  */
 @BeanDefinition
-public final class SabrParametersSwaptionVolatilities
-    implements SabrSwaptionVolatilities, ImmutableBean, Serializable {
-  // To represent the data sensitivities (dataSensitivityAlpha, ...), DoubleMatrix does not work as the
-  // number of raw data can be different for each element of the list.
+public final class SabrParametersIborCapletFloorletVolatilities
+    implements SabrIborCapletFloorletVolatilities, ImmutableBean, Serializable {
 
   /**
    * The name.
    */
   @PropertyDefinition(validate = "notNull", overrideGet = true)
-  private final SwaptionVolatilitiesName name;
+  private final IborCapletFloorletVolatilitiesName name;
   /**
-   * The swap convention that the volatilities are to be used for.
+   * The Ibor index.
+   * <p>
+   * The data must valid in terms of this Ibor index.
    */
   @PropertyDefinition(validate = "notNull", overrideGet = true)
-  private final FixedIborSwapConvention convention;
+  private final IborIndex index;
   /**
    * The valuation date-time.
    * <p>
@@ -79,37 +79,36 @@ public final class SabrParametersSwaptionVolatilities
   /**
    * The SABR model parameters.
    * <p>
-   * Each model parameter of SABR model is a surface.
-   * The x-value of the surface is the expiry, as a year fraction.
-   * The y-value of the surface is the swap tenor, as a year fraction rounded to the month.
+   * Each model parameter of SABR model is a curve.
+   * The x-value of the curve is the expiry, as a year fraction.
    */
   @PropertyDefinition(validate = "notNull")
-  private final SabrInterestRateSurfaceParameters parameters;
+  private final SabrInterestRateCurveParameters parameters;
   /**
    * The sensitivity of the Alpha parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    */
   @PropertyDefinition(get = "optional")
   private final ImmutableList<DoubleArray> dataSensitivityAlpha;
   /**
    * The sensitivity of the Beta parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    */
   @PropertyDefinition(get = "optional")
   private final ImmutableList<DoubleArray> dataSensitivityBeta;
   /**
    * The sensitivity of the Rho parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    */
   @PropertyDefinition(get = "optional")
   private final ImmutableList<DoubleArray> dataSensitivityRho;
   /**
    * The sensitivity of the Nu parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    */
   @PropertyDefinition(get = "optional")
   private final ImmutableList<DoubleArray> dataSensitivityNu;
@@ -119,18 +118,18 @@ public final class SabrParametersSwaptionVolatilities
    * Obtains an instance from the SABR model parameters and the date-time for which it is valid.
    * 
    * @param name  the name
-   * @param convention  the swap convention that the volatilities are to be used for
+   * @param index  the Ibor index for which the data is valid
    * @param valuationDateTime  the valuation date-time
    * @param parameters  the SABR model parameters
    * @return the volatilities
    */
-  public static SabrParametersSwaptionVolatilities of(
-      SwaptionVolatilitiesName name,
-      FixedIborSwapConvention convention,
+  public static SabrParametersIborCapletFloorletVolatilities of(
+      IborCapletFloorletVolatilitiesName name,
+      IborIndex index,
       ZonedDateTime valuationDateTime,
-      SabrInterestRateSurfaceParameters parameters) {
+      SabrInterestRateCurveParameters parameters) {
 
-    return new SabrParametersSwaptionVolatilities(name, convention, valuationDateTime, parameters, null, null, null, null);
+    return new SabrParametersIborCapletFloorletVolatilities(name, index, valuationDateTime, parameters, null, null, null, null);
   }
 
   //-------------------------------------------------------------------------
@@ -145,20 +144,20 @@ public final class SabrParametersSwaptionVolatilities
 
   @Override
   public <T> Optional<T> findData(MarketDataName<T> name) {
-    if (parameters.getAlphaSurface().getName().equals(name)) {
-      return Optional.of(name.getMarketDataType().cast(parameters.getAlphaSurface()));
+    if (parameters.getAlphaCurve().getName().equals(name)) {
+      return Optional.of(name.getMarketDataType().cast(parameters.getAlphaCurve()));
     }
-    if (parameters.getBetaSurface().getName().equals(name)) {
-      return Optional.of(name.getMarketDataType().cast(parameters.getBetaSurface()));
+    if (parameters.getBetaCurve().getName().equals(name)) {
+      return Optional.of(name.getMarketDataType().cast(parameters.getBetaCurve()));
     }
-    if (parameters.getRhoSurface().getName().equals(name)) {
-      return Optional.of(name.getMarketDataType().cast(parameters.getRhoSurface()));
+    if (parameters.getRhoCurve().getName().equals(name)) {
+      return Optional.of(name.getMarketDataType().cast(parameters.getRhoCurve()));
     }
-    if (parameters.getNuSurface().getName().equals(name)) {
-      return Optional.of(name.getMarketDataType().cast(parameters.getNuSurface()));
+    if (parameters.getNuCurve().getName().equals(name)) {
+      return Optional.of(name.getMarketDataType().cast(parameters.getNuCurve()));
     }
-    if (parameters.getShiftSurface().getName().equals(name)) {
-      return Optional.of(name.getMarketDataType().cast(parameters.getShiftSurface()));
+    if (parameters.getShiftCurve().getName().equals(name)) {
+      return Optional.of(name.getMarketDataType().cast(parameters.getShiftCurve()));
     }
     return Optional.empty();
   }
@@ -179,11 +178,11 @@ public final class SabrParametersSwaptionVolatilities
   }
 
   @Override
-  public SabrParametersSwaptionVolatilities withParameter(int parameterIndex, double newValue) {
-    SabrInterestRateSurfaceParameters updated = parameters.withParameter(parameterIndex, newValue);
-    return new SabrParametersSwaptionVolatilities(
+  public SabrParametersIborCapletFloorletVolatilities withParameter(int parameterIndex, double newValue) {
+    SabrInterestRateCurveParameters updated = parameters.withParameter(parameterIndex, newValue);
+    return new SabrParametersIborCapletFloorletVolatilities(
         name,
-        convention,
+        index,
         valuationDateTime,
         updated,
         dataSensitivityAlpha,
@@ -193,11 +192,11 @@ public final class SabrParametersSwaptionVolatilities
   }
 
   @Override
-  public SabrParametersSwaptionVolatilities withPerturbation(ParameterPerturbation perturbation) {
-    SabrInterestRateSurfaceParameters updated = parameters.withPerturbation(perturbation);
-    return new SabrParametersSwaptionVolatilities(
+  public SabrParametersIborCapletFloorletVolatilities withPerturbation(ParameterPerturbation perturbation) {
+    SabrInterestRateCurveParameters updated = parameters.withPerturbation(perturbation);
+    return new SabrParametersIborCapletFloorletVolatilities(
         name,
-        convention,
+        index,
         valuationDateTime,
         updated,
         dataSensitivityAlpha,
@@ -208,46 +207,46 @@ public final class SabrParametersSwaptionVolatilities
 
   //-------------------------------------------------------------------------
   @Override
-  public double volatility(double expiry, double tenor, double strike, double forwardRate) {
-    return parameters.volatility(expiry, tenor, strike, forwardRate);
+  public double volatility(double expiry, double strike, double forwardRate) {
+    return parameters.volatility(expiry, strike, forwardRate);
   }
 
   @Override
-  public ValueDerivatives volatilityAdjoint(double expiry, double tenor, double strike, double forward) {
-    return parameters.volatilityAdjoint(expiry, tenor, strike, forward);
+  public ValueDerivatives volatilityAdjoint(double expiry, double strike, double forward) {
+    return parameters.volatilityAdjoint(expiry, strike, forward);
   }
 
   @Override
-  public double alpha(double expiry, double tenor) {
-    return parameters.alpha(expiry, tenor);
+  public double alpha(double expiry) {
+    return parameters.alpha(expiry);
   }
 
   @Override
-  public double beta(double expiry, double tenor) {
-    return parameters.beta(expiry, tenor);
+  public double beta(double expiry) {
+    return parameters.beta(expiry);
   }
 
   @Override
-  public double rho(double expiry, double tenor) {
-    return parameters.rho(expiry, tenor);
+  public double rho(double expiry) {
+    return parameters.rho(expiry);
   }
 
   @Override
-  public double nu(double expiry, double tenor) {
-    return parameters.nu(expiry, tenor);
+  public double nu(double expiry) {
+    return parameters.nu(expiry);
   }
 
   @Override
-  public double shift(double expiry, double tenor) {
-    return parameters.shift(expiry, tenor);
+  public double shift(double expiry) {
+    return parameters.shift(expiry);
   }
 
   @Override
   public CurrencyParameterSensitivities parameterSensitivity(PointSensitivities pointSensitivities) {
     CurrencyParameterSensitivities sens = CurrencyParameterSensitivities.empty();
     for (PointSensitivity point : pointSensitivities.getSensitivities()) {
-      if (point instanceof SwaptionSabrSensitivity) {
-        SwaptionSabrSensitivity pt = (SwaptionSabrSensitivity) point;
+      if (point instanceof IborCapletFloorletSabrSensitivity) {
+        IborCapletFloorletSabrSensitivity pt = (IborCapletFloorletSabrSensitivity) point;
         if (pt.getVolatilitiesName().equals(getName())) {
           sens = sens.combinedWith(parameterSensitivity(pt));
         }
@@ -257,26 +256,26 @@ public final class SabrParametersSwaptionVolatilities
   }
 
   // convert a single point sensitivity
-  private CurrencyParameterSensitivity parameterSensitivity(SwaptionSabrSensitivity point) {
-    Surface surface = getSurface(point.getSensitivityType());
+  private CurrencyParameterSensitivity parameterSensitivity(IborCapletFloorletSabrSensitivity point) {
+    Curve curve = getCurve(point.getSensitivityType());
     double expiry = point.getExpiry();
-    UnitParameterSensitivity unitSens = surface.zValueParameterSensitivity(expiry, point.getTenor());
+    UnitParameterSensitivity unitSens = curve.yValueParameterSensitivity(expiry);
     return unitSens.multipliedBy(point.getCurrency(), point.getSensitivity());
   }
 
-  // find surface
-  private Surface getSurface(SabrParameterType type) {
+  // find Curve
+  private Curve getCurve(SabrParameterType type) {
     switch (type) {
       case ALPHA:
-        return parameters.getAlphaSurface();
+        return parameters.getAlphaCurve();
       case BETA:
-        return parameters.getBetaSurface();
+        return parameters.getBetaCurve();
       case RHO:
-        return parameters.getRhoSurface();
+        return parameters.getRhoCurve();
       case NU:
-        return parameters.getNuSurface();
+        return parameters.getNuCurve();
       case SHIFT:
-        return parameters.getShiftSurface();
+        return parameters.getShiftCurve();
       default:
         throw new IllegalStateException("Invalid enum value");
     }
@@ -284,32 +283,32 @@ public final class SabrParametersSwaptionVolatilities
 
   //-------------------------------------------------------------------------
   @Override
-  public double price(double expiry, double tenor, PutCall putCall, double strike, double forward, double volatility) {
-    double shift = parameters.shift(expiry, tenor);
+  public double price(double expiry, PutCall putCall, double strike, double forward, double volatility) {
+    double shift = parameters.shift(expiry);
     return BlackFormulaRepository.price(forward + shift, strike + shift, expiry, volatility, putCall.isCall());
   }
 
   @Override
-  public double priceDelta(double expiry, double tenor, PutCall putCall, double strike, double forward, double volatility) {
-    double shift = parameters.shift(expiry, tenor);
+  public double priceDelta(double expiry, PutCall putCall, double strike, double forward, double volatility) {
+    double shift = parameters.shift(expiry);
     return BlackFormulaRepository.delta(forward + shift, strike + shift, expiry, volatility, putCall.isCall());
   }
 
   @Override
-  public double priceGamma(double expiry, double tenor, PutCall putCall, double strike, double forward, double volatility) {
-    double shift = parameters.shift(expiry, tenor);
+  public double priceGamma(double expiry, PutCall putCall, double strike, double forward, double volatility) {
+    double shift = parameters.shift(expiry);
     return BlackFormulaRepository.gamma(forward + shift, strike + shift, expiry, volatility);
   }
 
   @Override
-  public double priceTheta(double expiry, double tenor, PutCall putCall, double strike, double forward, double volatility) {
-    double shift = parameters.shift(expiry, tenor);
+  public double priceTheta(double expiry, PutCall putCall, double strike, double forward, double volatility) {
+    double shift = parameters.shift(expiry);
     return BlackFormulaRepository.driftlessTheta(forward + shift, strike + shift, expiry, volatility);
   }
 
   @Override
-  public double priceVega(double expiry, double tenor, PutCall putCall, double strike, double forward, double volatility) {
-    double shift = parameters.shift(expiry, tenor);
+  public double priceVega(double expiry, PutCall putCall, double strike, double forward, double volatility) {
+    double shift = parameters.shift(expiry);
     return BlackFormulaRepository.vega(forward + shift, strike + shift, expiry, volatility);
   }
 
@@ -322,24 +321,18 @@ public final class SabrParametersSwaptionVolatilities
     return getDayCount().relativeYearFraction(valuationDate, date);
   }
 
-  @Override
-  public double tenor(LocalDate startDate, LocalDate endDate) {
-    // rounded number of months. the rounding is to ensure that an integer number of year even with holidays/leap year
-    return Math.round((endDate.toEpochDay() - startDate.toEpochDay()) / 365.25 * 12) / 12;
-  }
-
   //------------------------- AUTOGENERATED START -------------------------
   ///CLOVER:OFF
   /**
-   * The meta-bean for {@code SabrParametersSwaptionVolatilities}.
+   * The meta-bean for {@code SabrParametersIborCapletFloorletVolatilities}.
    * @return the meta-bean, not null
    */
-  public static SabrParametersSwaptionVolatilities.Meta meta() {
-    return SabrParametersSwaptionVolatilities.Meta.INSTANCE;
+  public static SabrParametersIborCapletFloorletVolatilities.Meta meta() {
+    return SabrParametersIborCapletFloorletVolatilities.Meta.INSTANCE;
   }
 
   static {
-    JodaBeanUtils.registerMetaBean(SabrParametersSwaptionVolatilities.Meta.INSTANCE);
+    JodaBeanUtils.registerMetaBean(SabrParametersIborCapletFloorletVolatilities.Meta.INSTANCE);
   }
 
   /**
@@ -351,25 +344,25 @@ public final class SabrParametersSwaptionVolatilities
    * Returns a builder used to create an instance of the bean.
    * @return the builder, not null
    */
-  public static SabrParametersSwaptionVolatilities.Builder builder() {
-    return new SabrParametersSwaptionVolatilities.Builder();
+  public static SabrParametersIborCapletFloorletVolatilities.Builder builder() {
+    return new SabrParametersIborCapletFloorletVolatilities.Builder();
   }
 
-  private SabrParametersSwaptionVolatilities(
-      SwaptionVolatilitiesName name,
-      FixedIborSwapConvention convention,
+  private SabrParametersIborCapletFloorletVolatilities(
+      IborCapletFloorletVolatilitiesName name,
+      IborIndex index,
       ZonedDateTime valuationDateTime,
-      SabrInterestRateSurfaceParameters parameters,
+      SabrInterestRateCurveParameters parameters,
       List<DoubleArray> dataSensitivityAlpha,
       List<DoubleArray> dataSensitivityBeta,
       List<DoubleArray> dataSensitivityRho,
       List<DoubleArray> dataSensitivityNu) {
     JodaBeanUtils.notNull(name, "name");
-    JodaBeanUtils.notNull(convention, "convention");
+    JodaBeanUtils.notNull(index, "index");
     JodaBeanUtils.notNull(valuationDateTime, "valuationDateTime");
     JodaBeanUtils.notNull(parameters, "parameters");
     this.name = name;
-    this.convention = convention;
+    this.index = index;
     this.valuationDateTime = valuationDateTime;
     this.parameters = parameters;
     this.dataSensitivityAlpha = (dataSensitivityAlpha != null ? ImmutableList.copyOf(dataSensitivityAlpha) : null);
@@ -379,8 +372,8 @@ public final class SabrParametersSwaptionVolatilities
   }
 
   @Override
-  public SabrParametersSwaptionVolatilities.Meta metaBean() {
-    return SabrParametersSwaptionVolatilities.Meta.INSTANCE;
+  public SabrParametersIborCapletFloorletVolatilities.Meta metaBean() {
+    return SabrParametersIborCapletFloorletVolatilities.Meta.INSTANCE;
   }
 
   @Override
@@ -399,18 +392,20 @@ public final class SabrParametersSwaptionVolatilities
    * @return the value of the property, not null
    */
   @Override
-  public SwaptionVolatilitiesName getName() {
+  public IborCapletFloorletVolatilitiesName getName() {
     return name;
   }
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the swap convention that the volatilities are to be used for.
+   * Gets the Ibor index.
+   * <p>
+   * The data must valid in terms of this Ibor index.
    * @return the value of the property, not null
    */
   @Override
-  public FixedIborSwapConvention getConvention() {
-    return convention;
+  public IborIndex getIndex() {
+    return index;
   }
 
   //-----------------------------------------------------------------------
@@ -429,12 +424,11 @@ public final class SabrParametersSwaptionVolatilities
   /**
    * Gets the SABR model parameters.
    * <p>
-   * Each model parameter of SABR model is a surface.
-   * The x-value of the surface is the expiry, as a year fraction.
-   * The y-value of the surface is the swap tenor, as a year fraction rounded to the month.
+   * Each model parameter of SABR model is a curve.
+   * The x-value of the curve is the expiry, as a year fraction.
    * @return the value of the property, not null
    */
-  public SabrInterestRateSurfaceParameters getParameters() {
+  public SabrInterestRateCurveParameters getParameters() {
     return parameters;
   }
 
@@ -442,7 +436,7 @@ public final class SabrParametersSwaptionVolatilities
   /**
    * Gets the sensitivity of the Alpha parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    * @return the optional value of the property, not null
    */
   public Optional<ImmutableList<DoubleArray>> getDataSensitivityAlpha() {
@@ -453,7 +447,7 @@ public final class SabrParametersSwaptionVolatilities
   /**
    * Gets the sensitivity of the Beta parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    * @return the optional value of the property, not null
    */
   public Optional<ImmutableList<DoubleArray>> getDataSensitivityBeta() {
@@ -464,7 +458,7 @@ public final class SabrParametersSwaptionVolatilities
   /**
    * Gets the sensitivity of the Rho parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    * @return the optional value of the property, not null
    */
   public Optional<ImmutableList<DoubleArray>> getDataSensitivityRho() {
@@ -475,7 +469,7 @@ public final class SabrParametersSwaptionVolatilities
   /**
    * Gets the sensitivity of the Nu parameters to the raw data used for calibration.
    * <p>
-   * The order of the sensitivities have to be coherent with the surface parameter metadata.
+   * The order of the sensitivities have to be coherent with the curve parameter metadata.
    * @return the optional value of the property, not null
    */
   public Optional<ImmutableList<DoubleArray>> getDataSensitivityNu() {
@@ -497,9 +491,9 @@ public final class SabrParametersSwaptionVolatilities
       return true;
     }
     if (obj != null && obj.getClass() == this.getClass()) {
-      SabrParametersSwaptionVolatilities other = (SabrParametersSwaptionVolatilities) obj;
+      SabrParametersIborCapletFloorletVolatilities other = (SabrParametersIborCapletFloorletVolatilities) obj;
       return JodaBeanUtils.equal(name, other.name) &&
-          JodaBeanUtils.equal(convention, other.convention) &&
+          JodaBeanUtils.equal(index, other.index) &&
           JodaBeanUtils.equal(valuationDateTime, other.valuationDateTime) &&
           JodaBeanUtils.equal(parameters, other.parameters) &&
           JodaBeanUtils.equal(dataSensitivityAlpha, other.dataSensitivityAlpha) &&
@@ -514,7 +508,7 @@ public final class SabrParametersSwaptionVolatilities
   public int hashCode() {
     int hash = getClass().hashCode();
     hash = hash * 31 + JodaBeanUtils.hashCode(name);
-    hash = hash * 31 + JodaBeanUtils.hashCode(convention);
+    hash = hash * 31 + JodaBeanUtils.hashCode(index);
     hash = hash * 31 + JodaBeanUtils.hashCode(valuationDateTime);
     hash = hash * 31 + JodaBeanUtils.hashCode(parameters);
     hash = hash * 31 + JodaBeanUtils.hashCode(dataSensitivityAlpha);
@@ -527,9 +521,9 @@ public final class SabrParametersSwaptionVolatilities
   @Override
   public String toString() {
     StringBuilder buf = new StringBuilder(288);
-    buf.append("SabrParametersSwaptionVolatilities{");
+    buf.append("SabrParametersIborCapletFloorletVolatilities{");
     buf.append("name").append('=').append(name).append(',').append(' ');
-    buf.append("convention").append('=').append(convention).append(',').append(' ');
+    buf.append("index").append('=').append(index).append(',').append(' ');
     buf.append("valuationDateTime").append('=').append(valuationDateTime).append(',').append(' ');
     buf.append("parameters").append('=').append(parameters).append(',').append(' ');
     buf.append("dataSensitivityAlpha").append('=').append(dataSensitivityAlpha).append(',').append(' ');
@@ -542,7 +536,7 @@ public final class SabrParametersSwaptionVolatilities
 
   //-----------------------------------------------------------------------
   /**
-   * The meta-bean for {@code SabrParametersSwaptionVolatilities}.
+   * The meta-bean for {@code SabrParametersIborCapletFloorletVolatilities}.
    */
   public static final class Meta extends DirectMetaBean {
     /**
@@ -553,54 +547,54 @@ public final class SabrParametersSwaptionVolatilities
     /**
      * The meta-property for the {@code name} property.
      */
-    private final MetaProperty<SwaptionVolatilitiesName> name = DirectMetaProperty.ofImmutable(
-        this, "name", SabrParametersSwaptionVolatilities.class, SwaptionVolatilitiesName.class);
+    private final MetaProperty<IborCapletFloorletVolatilitiesName> name = DirectMetaProperty.ofImmutable(
+        this, "name", SabrParametersIborCapletFloorletVolatilities.class, IborCapletFloorletVolatilitiesName.class);
     /**
-     * The meta-property for the {@code convention} property.
+     * The meta-property for the {@code index} property.
      */
-    private final MetaProperty<FixedIborSwapConvention> convention = DirectMetaProperty.ofImmutable(
-        this, "convention", SabrParametersSwaptionVolatilities.class, FixedIborSwapConvention.class);
+    private final MetaProperty<IborIndex> index = DirectMetaProperty.ofImmutable(
+        this, "index", SabrParametersIborCapletFloorletVolatilities.class, IborIndex.class);
     /**
      * The meta-property for the {@code valuationDateTime} property.
      */
     private final MetaProperty<ZonedDateTime> valuationDateTime = DirectMetaProperty.ofImmutable(
-        this, "valuationDateTime", SabrParametersSwaptionVolatilities.class, ZonedDateTime.class);
+        this, "valuationDateTime", SabrParametersIborCapletFloorletVolatilities.class, ZonedDateTime.class);
     /**
      * The meta-property for the {@code parameters} property.
      */
-    private final MetaProperty<SabrInterestRateSurfaceParameters> parameters = DirectMetaProperty.ofImmutable(
-        this, "parameters", SabrParametersSwaptionVolatilities.class, SabrInterestRateSurfaceParameters.class);
+    private final MetaProperty<SabrInterestRateCurveParameters> parameters = DirectMetaProperty.ofImmutable(
+        this, "parameters", SabrParametersIborCapletFloorletVolatilities.class, SabrInterestRateCurveParameters.class);
     /**
      * The meta-property for the {@code dataSensitivityAlpha} property.
      */
     @SuppressWarnings({"unchecked", "rawtypes" })
     private final MetaProperty<ImmutableList<DoubleArray>> dataSensitivityAlpha = DirectMetaProperty.ofImmutable(
-        this, "dataSensitivityAlpha", SabrParametersSwaptionVolatilities.class, (Class) ImmutableList.class);
+        this, "dataSensitivityAlpha", SabrParametersIborCapletFloorletVolatilities.class, (Class) ImmutableList.class);
     /**
      * The meta-property for the {@code dataSensitivityBeta} property.
      */
     @SuppressWarnings({"unchecked", "rawtypes" })
     private final MetaProperty<ImmutableList<DoubleArray>> dataSensitivityBeta = DirectMetaProperty.ofImmutable(
-        this, "dataSensitivityBeta", SabrParametersSwaptionVolatilities.class, (Class) ImmutableList.class);
+        this, "dataSensitivityBeta", SabrParametersIborCapletFloorletVolatilities.class, (Class) ImmutableList.class);
     /**
      * The meta-property for the {@code dataSensitivityRho} property.
      */
     @SuppressWarnings({"unchecked", "rawtypes" })
     private final MetaProperty<ImmutableList<DoubleArray>> dataSensitivityRho = DirectMetaProperty.ofImmutable(
-        this, "dataSensitivityRho", SabrParametersSwaptionVolatilities.class, (Class) ImmutableList.class);
+        this, "dataSensitivityRho", SabrParametersIborCapletFloorletVolatilities.class, (Class) ImmutableList.class);
     /**
      * The meta-property for the {@code dataSensitivityNu} property.
      */
     @SuppressWarnings({"unchecked", "rawtypes" })
     private final MetaProperty<ImmutableList<DoubleArray>> dataSensitivityNu = DirectMetaProperty.ofImmutable(
-        this, "dataSensitivityNu", SabrParametersSwaptionVolatilities.class, (Class) ImmutableList.class);
+        this, "dataSensitivityNu", SabrParametersIborCapletFloorletVolatilities.class, (Class) ImmutableList.class);
     /**
      * The meta-properties.
      */
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
         "name",
-        "convention",
+        "index",
         "valuationDateTime",
         "parameters",
         "dataSensitivityAlpha",
@@ -619,8 +613,8 @@ public final class SabrParametersSwaptionVolatilities
       switch (propertyName.hashCode()) {
         case 3373707:  // name
           return name;
-        case 2039569265:  // convention
-          return convention;
+        case 100346066:  // index
+          return index;
         case -949589828:  // valuationDateTime
           return valuationDateTime;
         case 458736106:  // parameters
@@ -638,13 +632,13 @@ public final class SabrParametersSwaptionVolatilities
     }
 
     @Override
-    public SabrParametersSwaptionVolatilities.Builder builder() {
-      return new SabrParametersSwaptionVolatilities.Builder();
+    public SabrParametersIborCapletFloorletVolatilities.Builder builder() {
+      return new SabrParametersIborCapletFloorletVolatilities.Builder();
     }
 
     @Override
-    public Class<? extends SabrParametersSwaptionVolatilities> beanType() {
-      return SabrParametersSwaptionVolatilities.class;
+    public Class<? extends SabrParametersIborCapletFloorletVolatilities> beanType() {
+      return SabrParametersIborCapletFloorletVolatilities.class;
     }
 
     @Override
@@ -657,16 +651,16 @@ public final class SabrParametersSwaptionVolatilities
      * The meta-property for the {@code name} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<SwaptionVolatilitiesName> name() {
+    public MetaProperty<IborCapletFloorletVolatilitiesName> name() {
       return name;
     }
 
     /**
-     * The meta-property for the {@code convention} property.
+     * The meta-property for the {@code index} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<FixedIborSwapConvention> convention() {
-      return convention;
+    public MetaProperty<IborIndex> index() {
+      return index;
     }
 
     /**
@@ -681,7 +675,7 @@ public final class SabrParametersSwaptionVolatilities
      * The meta-property for the {@code parameters} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<SabrInterestRateSurfaceParameters> parameters() {
+    public MetaProperty<SabrInterestRateCurveParameters> parameters() {
       return parameters;
     }
 
@@ -722,21 +716,21 @@ public final class SabrParametersSwaptionVolatilities
     protected Object propertyGet(Bean bean, String propertyName, boolean quiet) {
       switch (propertyName.hashCode()) {
         case 3373707:  // name
-          return ((SabrParametersSwaptionVolatilities) bean).getName();
-        case 2039569265:  // convention
-          return ((SabrParametersSwaptionVolatilities) bean).getConvention();
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).getName();
+        case 100346066:  // index
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).getIndex();
         case -949589828:  // valuationDateTime
-          return ((SabrParametersSwaptionVolatilities) bean).getValuationDateTime();
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).getValuationDateTime();
         case 458736106:  // parameters
-          return ((SabrParametersSwaptionVolatilities) bean).getParameters();
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).getParameters();
         case 1650101705:  // dataSensitivityAlpha
-          return ((SabrParametersSwaptionVolatilities) bean).dataSensitivityAlpha;
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).dataSensitivityAlpha;
         case -85295067:  // dataSensitivityBeta
-          return ((SabrParametersSwaptionVolatilities) bean).dataSensitivityBeta;
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).dataSensitivityBeta;
         case 967095332:  // dataSensitivityRho
-          return ((SabrParametersSwaptionVolatilities) bean).dataSensitivityRho;
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).dataSensitivityRho;
         case -1077182148:  // dataSensitivityNu
-          return ((SabrParametersSwaptionVolatilities) bean).dataSensitivityNu;
+          return ((SabrParametersIborCapletFloorletVolatilities) bean).dataSensitivityNu;
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -754,14 +748,14 @@ public final class SabrParametersSwaptionVolatilities
 
   //-----------------------------------------------------------------------
   /**
-   * The bean-builder for {@code SabrParametersSwaptionVolatilities}.
+   * The bean-builder for {@code SabrParametersIborCapletFloorletVolatilities}.
    */
-  public static final class Builder extends DirectFieldsBeanBuilder<SabrParametersSwaptionVolatilities> {
+  public static final class Builder extends DirectFieldsBeanBuilder<SabrParametersIborCapletFloorletVolatilities> {
 
-    private SwaptionVolatilitiesName name;
-    private FixedIborSwapConvention convention;
+    private IborCapletFloorletVolatilitiesName name;
+    private IborIndex index;
     private ZonedDateTime valuationDateTime;
-    private SabrInterestRateSurfaceParameters parameters;
+    private SabrInterestRateCurveParameters parameters;
     private List<DoubleArray> dataSensitivityAlpha;
     private List<DoubleArray> dataSensitivityBeta;
     private List<DoubleArray> dataSensitivityRho;
@@ -777,9 +771,9 @@ public final class SabrParametersSwaptionVolatilities
      * Restricted copy constructor.
      * @param beanToCopy  the bean to copy from, not null
      */
-    private Builder(SabrParametersSwaptionVolatilities beanToCopy) {
+    private Builder(SabrParametersIborCapletFloorletVolatilities beanToCopy) {
       this.name = beanToCopy.getName();
-      this.convention = beanToCopy.getConvention();
+      this.index = beanToCopy.getIndex();
       this.valuationDateTime = beanToCopy.getValuationDateTime();
       this.parameters = beanToCopy.getParameters();
       this.dataSensitivityAlpha = beanToCopy.dataSensitivityAlpha;
@@ -794,8 +788,8 @@ public final class SabrParametersSwaptionVolatilities
       switch (propertyName.hashCode()) {
         case 3373707:  // name
           return name;
-        case 2039569265:  // convention
-          return convention;
+        case 100346066:  // index
+          return index;
         case -949589828:  // valuationDateTime
           return valuationDateTime;
         case 458736106:  // parameters
@@ -818,16 +812,16 @@ public final class SabrParametersSwaptionVolatilities
     public Builder set(String propertyName, Object newValue) {
       switch (propertyName.hashCode()) {
         case 3373707:  // name
-          this.name = (SwaptionVolatilitiesName) newValue;
+          this.name = (IborCapletFloorletVolatilitiesName) newValue;
           break;
-        case 2039569265:  // convention
-          this.convention = (FixedIborSwapConvention) newValue;
+        case 100346066:  // index
+          this.index = (IborIndex) newValue;
           break;
         case -949589828:  // valuationDateTime
           this.valuationDateTime = (ZonedDateTime) newValue;
           break;
         case 458736106:  // parameters
-          this.parameters = (SabrInterestRateSurfaceParameters) newValue;
+          this.parameters = (SabrInterestRateCurveParameters) newValue;
           break;
         case 1650101705:  // dataSensitivityAlpha
           this.dataSensitivityAlpha = (List<DoubleArray>) newValue;
@@ -872,10 +866,10 @@ public final class SabrParametersSwaptionVolatilities
     }
 
     @Override
-    public SabrParametersSwaptionVolatilities build() {
-      return new SabrParametersSwaptionVolatilities(
+    public SabrParametersIborCapletFloorletVolatilities build() {
+      return new SabrParametersIborCapletFloorletVolatilities(
           name,
-          convention,
+          index,
           valuationDateTime,
           parameters,
           dataSensitivityAlpha,
@@ -890,20 +884,22 @@ public final class SabrParametersSwaptionVolatilities
      * @param name  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder name(SwaptionVolatilitiesName name) {
+    public Builder name(IborCapletFloorletVolatilitiesName name) {
       JodaBeanUtils.notNull(name, "name");
       this.name = name;
       return this;
     }
 
     /**
-     * Sets the swap convention that the volatilities are to be used for.
-     * @param convention  the new value, not null
+     * Sets the Ibor index.
+     * <p>
+     * The data must valid in terms of this Ibor index.
+     * @param index  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder convention(FixedIborSwapConvention convention) {
-      JodaBeanUtils.notNull(convention, "convention");
-      this.convention = convention;
+    public Builder index(IborIndex index) {
+      JodaBeanUtils.notNull(index, "index");
+      this.index = index;
       return this;
     }
 
@@ -923,13 +919,12 @@ public final class SabrParametersSwaptionVolatilities
     /**
      * Sets the SABR model parameters.
      * <p>
-     * Each model parameter of SABR model is a surface.
-     * The x-value of the surface is the expiry, as a year fraction.
-     * The y-value of the surface is the swap tenor, as a year fraction rounded to the month.
+     * Each model parameter of SABR model is a curve.
+     * The x-value of the curve is the expiry, as a year fraction.
      * @param parameters  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder parameters(SabrInterestRateSurfaceParameters parameters) {
+    public Builder parameters(SabrInterestRateCurveParameters parameters) {
       JodaBeanUtils.notNull(parameters, "parameters");
       this.parameters = parameters;
       return this;
@@ -938,7 +933,7 @@ public final class SabrParametersSwaptionVolatilities
     /**
      * Sets the sensitivity of the Alpha parameters to the raw data used for calibration.
      * <p>
-     * The order of the sensitivities have to be coherent with the surface parameter metadata.
+     * The order of the sensitivities have to be coherent with the curve parameter metadata.
      * @param dataSensitivityAlpha  the new value
      * @return this, for chaining, not null
      */
@@ -960,7 +955,7 @@ public final class SabrParametersSwaptionVolatilities
     /**
      * Sets the sensitivity of the Beta parameters to the raw data used for calibration.
      * <p>
-     * The order of the sensitivities have to be coherent with the surface parameter metadata.
+     * The order of the sensitivities have to be coherent with the curve parameter metadata.
      * @param dataSensitivityBeta  the new value
      * @return this, for chaining, not null
      */
@@ -982,7 +977,7 @@ public final class SabrParametersSwaptionVolatilities
     /**
      * Sets the sensitivity of the Rho parameters to the raw data used for calibration.
      * <p>
-     * The order of the sensitivities have to be coherent with the surface parameter metadata.
+     * The order of the sensitivities have to be coherent with the curve parameter metadata.
      * @param dataSensitivityRho  the new value
      * @return this, for chaining, not null
      */
@@ -1004,7 +999,7 @@ public final class SabrParametersSwaptionVolatilities
     /**
      * Sets the sensitivity of the Nu parameters to the raw data used for calibration.
      * <p>
-     * The order of the sensitivities have to be coherent with the surface parameter metadata.
+     * The order of the sensitivities have to be coherent with the curve parameter metadata.
      * @param dataSensitivityNu  the new value
      * @return this, for chaining, not null
      */
@@ -1027,9 +1022,9 @@ public final class SabrParametersSwaptionVolatilities
     @Override
     public String toString() {
       StringBuilder buf = new StringBuilder(288);
-      buf.append("SabrParametersSwaptionVolatilities.Builder{");
+      buf.append("SabrParametersIborCapletFloorletVolatilities.Builder{");
       buf.append("name").append('=').append(JodaBeanUtils.toString(name)).append(',').append(' ');
-      buf.append("convention").append('=').append(JodaBeanUtils.toString(convention)).append(',').append(' ');
+      buf.append("index").append('=').append(JodaBeanUtils.toString(index)).append(',').append(' ');
       buf.append("valuationDateTime").append('=').append(JodaBeanUtils.toString(valuationDateTime)).append(',').append(' ');
       buf.append("parameters").append('=').append(JodaBeanUtils.toString(parameters)).append(',').append(' ');
       buf.append("dataSensitivityAlpha").append('=').append(JodaBeanUtils.toString(dataSensitivityAlpha)).append(',').append(' ');
